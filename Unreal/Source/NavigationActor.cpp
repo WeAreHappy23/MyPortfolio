@@ -2,20 +2,19 @@
 
 #include "NavigationActor.h"
 #include "Object/NavigationActor/NavigationPoint.h"
-#include "Particles/ParticleSystemComponent.h"
-#include "UObject/ConstructorHelpers.h"
+#include "Particles/ParticleSystemComponent.h"			
+#include "UObject/ConstructorHelpers.h"					
 #include "BehaviorTree/BehaviorTree.h"
 #include "Object/NavigationActor/NavigationAIController.h"
-#include "Particles/ParticleSystem.h"
+#include "Particles/ParticleSystem.h"			
 #include "ParticleDefinitions.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/BoxComponent.h"
 
-// ナビゲーションアクターです。
-// プレーヤーがポイントに移動すれば,このナビゲーションアクターは次のターゲットに移動します。
-// 'CurrentPoint'と'TargetPoint'が異なるときにビヘイビアツリーから次のターゲットに移動します。
+// 道案内のアクター
+// キャラクターが特定の地点に移動すると、このアクターはAIが提供する移動機能を使用して、次の位置に移動することになります。
 
 // Sets default values
 ANavigationActor::ANavigationActor()
@@ -23,25 +22,26 @@ ANavigationActor::ANavigationActor()
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
+	//  ルートを生成、適用するコード
 	Scene = CreateDefaultSubobject<USceneComponent>(TEXT("Scene"));
 	Scene->SetupAttachment(RootComponent);
 
 	Navigate = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("Navigate"));
 	Navigate->SetupAttachment(Scene);
 
-	// 始まりと終わりパーティクル
+	// エディタ上でパーティクルを探して適用
 	static ConstructorHelpers::FObjectFinder<UParticleSystem> P_Navigate(TEXT("ParticleSystem'/Game/Assets/Effect/Navigation/PS_GPP_Firefly.PS_GPP_Firefly'"));
 	if (P_Navigate.Succeeded())
 	{
 		StartNavigate = P_Navigate.Object;
 	}
-	static ConstructorHelpers::FObjectFinder<UParticleSystem> P_EndNavigate(TEXT("ParticleSystem'/Game/Assets/Effect/Navigation/PS_GPP_Butterfly.PS_GPP_Butterfly'"));
+	static ConstructorHelpers::FObjectFinder<UParticleSystem> P_EndNavigate(TEXT("ParticleSystem'/Game/Assets/Effect/Navigation/PS_GPP_CannonPurple_Explosion_2.PS_GPP_CannonPurple_Explosion_2'"));
 	if (P_EndNavigate.Succeeded())
 	{
 		EndNavigate= P_EndNavigate.Object;
 	}
 
-	// ビヘイビアツリーを探します。
+	// エディタ上でAIファイルを探して適用
 	static ConstructorHelpers::FObjectFinder<UBehaviorTree>Monster_BehaviorTree(TEXT("BehaviorTree'/Game/Blueprints/Object/Navigation/AI/BT_Navigation.BT_Navigation'"));
 	if (Monster_BehaviorTree.Succeeded())
 	{
@@ -50,13 +50,14 @@ ANavigationActor::ANavigationActor()
 
 	AIControllerClass = ANavigationAIController::StaticClass();
 
-	// 現在ターゲットと目標ターゲット
+	// 現在ターゲット/目標ターゲット
 	CurrentPoint = -1;
 	TargetPoint = -1;
 
 	// ターゲット
 	Target = NULL;
 
+	// タグ設定
 	Tags.Add(FName("Navigation"));
 }
 
@@ -65,12 +66,11 @@ void ANavigationActor::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	// SetTemplateは初めてしか使用できなくてSpawnEmitterを使用します。
+	// 道案内用のパーティクルに設定
 	Navigate = UGameplayStatics::SpawnEmitterAttached(StartNavigate, RootComponent, NAME_None, GetActorLocation(), GetActorRotation(),
 		EAttachLocation::KeepWorldPosition, false);
 
-	// 移動ターゲットがあればデレゲートイベントに登録します。
-	if (Targets.Num() -1 >= TargetPoint)
+	if (Targets.Num() -1>= TargetPoint)
 	{
 		TargetPoint++;
 		Target = Targets[TargetPoint];
@@ -86,6 +86,7 @@ void ANavigationActor::Tick(float DeltaTime)
 	
 	AI = Cast<ANavigationAIController>(GetController());
 
+	// リアルタイムでAIに関する情報を適用
 	if (AI)
 	{
 		AI->BBComponent->SetValueAsInt("CurrentPoint", CurrentPoint);
@@ -96,15 +97,17 @@ void ANavigationActor::Tick(float DeltaTime)
 	}
 }
 
-// ナビゲーションポイントでイベントを呼びすれば実行されます。
+// 次のターゲットに移動
 void ANavigationActor::NavigationEvent()
 {
 	CurrentPoint++;
 	TargetPoint++;
 
-	// ターゲットの再設定 / 次のターゲットにイベントを登録します。
+	// 最後の位置への移動でない時
 	if (Targets.Num() > TargetPoint)
 	{
+		// 次のターゲットに移動した時、デリゲートであらかじめバインディングしてイベントを呼び出せるようにする。
+		// あらかじめ次のターゲットのOnOverlapがNavigationEventを再び呼び出せるようにデリゲートバインディング
 		if (Targets[TargetPoint])
 		{
 			Target = Targets[TargetPoint];
@@ -115,11 +118,11 @@ void ANavigationActor::NavigationEvent()
 		}
 	}
 
-	// 最後のターゲットに移動すると消えるエフェクトとともにビヘイビアツリーから数秒後に消えることにします。
+	// 移動後最後の位置の時にこのアクターのパーティクルを変更
 	if (CurrentPoint == Targets.Num() - 1)
 	{
 		Navigate->DeactivateSystem();
-
+		TargetPoint = Targets.Num();
 		if (EndNavigate)
 			Navigate = UGameplayStatics::SpawnEmitterAttached(EndNavigate, RootComponent,
 				NAME_None, GetActorLocation(), GetActorRotation(), EAttachLocation::KeepWorldPosition, false);

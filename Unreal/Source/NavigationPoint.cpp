@@ -8,14 +8,18 @@
 
 ANavigationPoint::ANavigationPoint()
 {
-
+	// ルートを生成、適用するコード
 	Collision = CreateDefaultSubobject<UBoxComponent>(TEXT("Collision"));
 	Collision->SetupAttachment(RootComponent);
 
+	// コリジョンのサイズや属性設定
 	Collision->SetRelativeScale3D(FVector(5.0f, 5.0f, 5.0f));
 	Collision->bGenerateOverlapEvents = true;
 	Collision->SetCollisionProfileName("OverlapAll");
 
+	// タグ設定
+	Collision->ComponentTags.Add(FName("DisregardForLeftHand"));
+	Collision->ComponentTags.Add(FName("DisregardForRightHand"));
 	Tags.Add(FName("NavigationEvent"));
 }
 
@@ -23,7 +27,7 @@ void ANavigationPoint::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// オーバーラップイベント
+	// オーバーラップイベントを発生させるように設定
 	Collision->OnComponentBeginOverlap.AddDynamic(this, &ANavigationPoint::OnOverlap);
 }
 
@@ -31,6 +35,7 @@ void ANavigationPoint::OnOverlap(UPrimitiveComponent * OverlappedComp, AActor * 
 {
 	if (OtherActor->ActorHasTag("Character"))
 	{
-		NaviEvent.ExecuteIfBound();		// イベント発生
+		// キャラクターとオーバーラップされるとこのターゲットだけが道案内アクターのNavigationEventを使用できるようにデリゲートでバインディング
+		NaviEvent.ExecuteIfBound();
 	}
 }

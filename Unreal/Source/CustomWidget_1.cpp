@@ -2,28 +2,30 @@
 
 #include "CustomWidget_1.h"
 #include "Widgets/CustomButton.h"
-
-// ウィジェットのクラスをこのクラスに登録します。 それではウィジェット上のオブジェクトと相互作用することができます。
+#include "Kismet/GameplayStatics.h"
+#include "MyCharacter/MotionControllerCharacter.h"
 
 void UCustomWidget_1::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	// ウィジェットの'ExitButton','CancelButton'という名前を持ったボタンをそれぞれ'CB_1','CB_2'の変数にします。
+	// ウィジェット内で名前でキャストする
 	CB_1 = Cast<UCustomButton>(GetWidgetFromName(TEXT("ExitButton")));
 	CB_2 = Cast<UCustomButton>(GetWidgetFromName(TEXT("CancelButton")));
 
-	// ボタンが押されれば登録された関数が呼び出されます。
+	// キャストされた各ボタンをTouchー>Grabする場合に発生するイベントを設定する
 	CB_1->OnClicked.AddDynamic(this, &UCustomWidget_1::OnClickedCB_1);
 	CB_2->OnClicked.AddDynamic(this, &UCustomWidget_1::OnClickedCB_2);
 }
 
+// ゲーム終了。最初に戻る。
 void UCustomWidget_1::OnClickedCB_1()
 {
-	UE_LOG(LogTemp, Log, TEXT("Press CB_1"));
+	Cast<AMotionControllerCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0))->MoveMainScene();
 }
 
+// ゲームを終了させるメニューを生成
 void UCustomWidget_1::OnClickedCB_2()
 {
-	UE_LOG(LogTemp, Log, TEXT("Press CB_2"));
+	Cast<AMotionControllerCharacter>(UGameplayStatics::GetPlayerCharacter(GetWorld(), 0))->GameMenu();
 }

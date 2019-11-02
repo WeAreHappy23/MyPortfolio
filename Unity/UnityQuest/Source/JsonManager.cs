@@ -5,24 +5,22 @@ using System.IO;
 using LitJson;
 using System.Collections.Generic;
 using UnityEngine.SceneManagement;
-
-// ステージごとに持っている情報でモンスターを活性化、配置させます。
-
 public delegate void NewSceneHandler();
 
-// モンスター
+// リソースファイルからモンスター情報を呼び込んで配置
+
 public class CharactersInfo
 {
-    public int Stage;
+    public int ID;
     public string Name;
     public double HP;
     public double Str;
     public double X;
     public double Y;
 
-    public CharactersInfo(int _stage, string _name, double _hp, double _str, double _x, double _y)
+    public CharactersInfo(int _id, string _name, double _hp, double _str, double _x, double _y)
     {
-        Stage = _stage;
+        ID = _id;
         Name = _name;
         HP = _hp;
         Str = _str;
@@ -33,26 +31,28 @@ public class CharactersInfo
 
 public class JsonManager : MonoBehaviour
 {
-    public event NewSceneHandler Handler;       // ステージ開始時,モンスターがすべて生成されたということを知らせてくれます。
+    public event NewSceneHandler Handler;       // 新しいステージが始まると、モンスター配置が完了した後、そのステージでモンスターの数、モンスターが倒される時のデリゲート適用などを担当。
 
-    // 読み込みます。
+    public List<CharactersInfo> itemList = new List<CharactersInfo>();
+    public List<CharactersInfo> MyInventory = new List<CharactersInfo>();
+
     public void LoadBtn()
     {
         StartCoroutine(LoadInfoData());
     }
 
-    // ファイルを探してロードします。
+    // 完了するまで実行
     IEnumerator LoadInfoData()
     {
-        TextAsset tasset = Resources.Load("document") as TextAsset;
-        JsonData itemData = JsonMapper.ToObject(tasset.ToString());
-        GetItem(itemData);
-        yield return null;
+            TextAsset tasset = Resources.Load("document") as TextAsset;
+            JsonData itemData = JsonMapper.ToObject(tasset.ToString());
+            GetItem(itemData);
+            yield return null;
     }
 
-    // 特定ステージにモンスターを設定、配置させます。
     private void GetItem(JsonData name)
     {
+        // 各モンスターの情報の保存
         GameObject monster;
         for (int i = 0; i < name.Count; i++)
         {
@@ -69,7 +69,7 @@ public class JsonManager : MonoBehaviour
         Handler();
     }
 
-    // 特定のシーンには生成しません。
+    // 次のシーンに移動後実行
     private void OnLevelWasLoaded(int level)
     {
         if(UQGameManager.Instance.Stage != 0 && UQGameManager.Instance.Stage != -1)
